@@ -68,3 +68,14 @@ def get_log_dir(org_name: str, app_name: str, *, errmsg: ErrMsg = None) -> Path 
 
     errmsg["err"] = False
     return app_log_dir
+
+
+def args_match(args: tuple, count: int, a_types: tuple) -> bool:
+    if len(args) != count:
+        return False
+
+    for ori, exp in zip(args, a_types):
+        if not isinstance(ori, exp):
+            return False
+
+    return True

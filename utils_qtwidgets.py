@@ -2,6 +2,11 @@
 from config import QtWidgets, QtCore, QtGui
 
 
+ItemStatusRole = 0x0101
+ItemIdsRole = 0x0102
+ItemUrlRole = 0x0103
+
+
 class PushButtonWithId(QtWidgets.QPushButton):
 
     clicked_with_id = QtCore.Signal(str)

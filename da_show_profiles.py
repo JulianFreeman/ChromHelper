@@ -1,22 +1,24 @@
 # coding: utf8
+from typing import Callable
 from config import QtWidgets, QtCore, is_compatible
 
+from typedict_def import PrfInfo, PrfDB
 from utils_general import sort_profiles_id_func, get_errmsg
 from utils_chromium import get_exec_path
 from utils_qtwidgets import accept_warning
 
-# from scan_bookmarks import delete_bookmark
-# from scan_extensions import delete_extension
-
 
 class DaShowProfiles(QtWidgets.QDialog):
 
-    def __init__(self, browser: str, kind: str, parent: QtWidgets.QWidget = None):
+    def __init__(self, browser: str, profiles_db: PrfDB,
+                 delete_func: Callable[[PrfInfo, str], bool],
+                 parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        self.kind = kind
         self.browser = browser
-        self.resize(400, 360)
+        self.profiles_db = profiles_db
+        self.delete_func = delete_func
 
+        self.resize(400, 360)
         self.vly_m = QtWidgets.QVBoxLayout()
         self.setLayout(self.vly_m)
 
@@ -29,30 +31,25 @@ class DaShowProfiles(QtWidgets.QDialog):
         self.vly_m.addWidget(self.trw_profiles)
 
         self.hly_bot = QtWidgets.QHBoxLayout()
-        self.pbn_open = QtWidgets.QPushButton("打开", self)
         self.pbn_delete_selected = QtWidgets.QPushButton("删除所选", self)
+        self.pbn_open = QtWidgets.QPushButton("打开", self)
+        self.pbn_cancel = QtWidgets.QPushButton("取消", self)
+        self.hly_bot.addWidget(self.pbn_delete_selected)
         self.hly_bot.addStretch(1)
         self.hly_bot.addWidget(self.pbn_open)
-        self.hly_bot.addWidget(self.pbn_delete_selected)
+        self.hly_bot.addWidget(self.pbn_cancel)
         self.vly_m.addLayout(self.hly_bot)
 
-        self.pbn_open.clicked.connect(self.on_pbn_open_clicked)
         self.pbn_delete_selected.clicked.connect(self.on_pbn_delete_selected_clicked)
+        self.pbn_open.clicked.connect(self.on_pbn_open_clicked)
+        self.pbn_cancel.clicked.connect(self.reject)
 
         self._process = QtCore.QProcess(self)
 
     def update_list(self, profiles: list[tuple[str, ...]], info: str):
         self.trw_profiles.clear()
-
-        match self.kind:
-            case "plugins":
-                self.trw_profiles.setColumnCount(2)
-                self.trw_profiles.setHeaderLabels(["ID", "名称"])
-            case "bookmarks":
-                self.trw_profiles.setColumnCount(3)
-                self.trw_profiles.setHeaderLabels(["ID", "名称", "位置"])
-            case _:
-                return
+        self.trw_profiles.setColumnCount(3)
+        self.trw_profiles.setHeaderLabels(["ID", "名称", "位置"])
 
         profiles.sort(key=lambda x: sort_profiles_id_func(x[0]))
         for elem in profiles:
@@ -72,7 +69,7 @@ class DaShowProfiles(QtWidgets.QDialog):
 
         for item in items:
             profile_id = item.text(0)  # type: str
-            # start 不行，不知道为什么，莫名其妙
+            # setProgram 不行，不知道为什么，莫名其妙
             if is_compatible:
                 self._process.start(cmd.format(profile_id))
             else:
@@ -88,15 +85,7 @@ class DaShowProfiles(QtWidgets.QDialog):
         success, fail = 0, 0
         for item in sel_items:
             profile_id = item.text(0)  # type: str
-            # if self.kind == "bookmarks":
-            #     r = delete_bookmark(self.browser, pi.strip(), self.lne_info.text())
-            # elif self.kind == "plugins":
-            #     r = delete_extension(self.browser, pi.strip(), self.lne_info.text())
-            # else:
-            #     continue
-            r = False
-
-            if r:
+            if self.delete_func(self.profiles_db[profile_id], self.lne_info.text()):
                 success += 1
             else:
                 fail += 1

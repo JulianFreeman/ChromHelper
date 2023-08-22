@@ -257,11 +257,11 @@ def _handle_bookmark(bmx_info: dict, bookmarks_db: BmxDB, profile_id: str, profi
                 _handle_bookmark(child, bookmarks_db, profile_id, profile_name, position)
 
 
-def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> tuple[BmxDB, dict[str, str]]:
+def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> BmxDB:
     errmsg = get_errmsg(errmsg)
     if len(profiles_db) == 0:
         errmsg["msg"] = "profiles_db 为空"
-        return {}, {}
+        return {}
 
     bookmarks_db = {}  # type: BmxDB
     for profile_id in profiles_db:
@@ -282,22 +282,15 @@ def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> tuple[BmxD
         for bmx_pos in bookmarks_roots:
             _handle_bookmark(bookmarks_roots[bmx_pos], bookmarks_db, profile_id, profile_name, [""])
 
-    bmx_name_urls = {}  # type: dict[str, list[str]]
-    for url in bookmarks_db:
-        name = bookmarks_db[url]["name"]
-        bmx_name_urls.setdefault(name, [])
-        bmx_name_urls[name].append(url)
-
-    bmx_name_url_map = {}  # type: dict[str, str]
-    for name, urls in bmx_name_urls.items():
-        i = 0
-        for u in urls:
-            if i != 0:
-                new_name = f"{name} [{i}]"
-            else:
-                new_name = name
-            bmx_name_url_map[new_name] = u
-            i += 1
-
     errmsg["err"] = False
-    return bookmarks_db, bmx_name_url_map
+    return bookmarks_db
+
+
+def delete_extension(profile_info: PrfInfo, ext_id: str) -> bool:
+    print(0)
+    return False
+
+
+def delete_bookmark(profile_info: PrfInfo, url: str) -> bool:
+    print(1)
+    return False
