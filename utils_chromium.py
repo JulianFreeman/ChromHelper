@@ -5,7 +5,6 @@ import json
 import shutil
 import logging
 from pathlib import Path
-from typing import Literal
 
 from typedict_def import (
     ErrMsg,
@@ -288,7 +287,8 @@ def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> BmxDB:
     return bookmarks_db
 
 
-def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> int:
+def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> tuple[int, int]:
+    total = len(ext_ids)
     profile_name = profile_info["name"]
 
     e_pref_path = profile_info["s_pref_path"]
@@ -298,12 +298,12 @@ def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> int:
         if path_not_exist(e_pref_path):
             logging.error(f"在 {profile_name} 中找不到 Preferences 文件")
             logging.error(f"在 {profile_name} 中无法找到插件信息")
-            return 0
+            return 0, total
     e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
     ext_set_data = get_with_chained_keys(e_pref_data, ["extensions", "settings"])  # type: dict
     if ext_set_data is None:
         logging.error(f"在 {e_pref_path} 中找不到 extensions>settings")
-        return 0
+        return 0, total
 
     s_pref_path = profile_info["s_pref_path"]
     pref_path = profile_info["pref_path"]
@@ -315,12 +315,12 @@ def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> int:
         s_pref_data = json.loads(s_pref_path.read_text("utf8"))  # type: dict
     else:
         logging.critical("不可能的错误")
-        return 0
+        return 0, total
 
     macs = get_with_chained_keys(s_pref_data, ["protection", "macs", "extensions", "settings"])  # type: dict
     if macs is None:
         logging.error(f"在 {s_pref_path} 中找不到 protection>macs>extensions>settings")
-        return 0
+        return 0, total
 
     success = 0
     for ids in ext_ids:
@@ -349,9 +349,53 @@ def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> int:
         if ext_folder_path.exists():
             shutil.rmtree(ext_folder_path, ignore_errors=True)
 
-    return success
+    return success, total
 
 
-def delete_bookmarks(profile_info: PrfInfo, urls: list[str]) -> int:
-    print(1)
-    return False
+def delete_bookmarks(profile_info: PrfInfo, urls: list[str]) -> tuple[int, int]:
+    total = len(urls)
+    profile_name = profile_info["name"]
+
+    bookmarks_path = profile_info["bookmarks_path"]
+    bookmarks_bak_path = profile_info["bookmarks_bak_path"]
+    if not path_not_exist(bookmarks_bak_path):
+        os.remove(bookmarks_bak_path)
+    if path_not_exist(bookmarks_path):
+        logging.error(f"在 {profile_name} 中未找到 Bookmarks 文件")
+        return 0, total
+
+    bookmarks_data = json.loads(bookmarks_path.read_text("utf8"))  # type: dict
+    if "checksum" in bookmarks_data:
+        bookmarks_data.pop("checksum")
+
+    success = 0
+
+    def search_and_delete(data: dict, parent: list) -> bool:
+        nonlocal success
+
+        match data["type"]:
+            case "url":
+                if data["url"] in urls:
+                    parent.remove(data)
+                    return True
+                else:
+                    return False
+            case "folder":
+                children = data["children"]
+                i = 0
+                while i < len(children):
+                    is_deleted = search_and_delete(children[i], children)
+                    if not is_deleted:
+                        i += 1
+                    else:
+                        success += 1
+            case _:
+                return False
+
+    root = bookmarks_data["roots"]
+    for f in root:
+        search_and_delete(root[f], [])
+
+    bookmarks_path.write_text(json.dumps(bookmarks_data, ensure_ascii=False), "utf8")
+
+    return success, total

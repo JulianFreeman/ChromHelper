@@ -1,4 +1,7 @@
 # coding: utf8
+from typing import Callable
+
+from typedict_def import PrfInfo
 from config import QtWidgets, QtCore, QtGui
 
 
@@ -59,3 +62,59 @@ def accept_warning(widget: QtWidgets.QWidget, condition: bool,
         if b == QtWidgets.QMessageBox.StandardButton.No:
             return True
     return False
+
+
+class DeleteThread(QtCore.QThread):
+
+    deleted = QtCore.Signal(int, int)
+
+    def __init__(self, delete_func: Callable[[PrfInfo, list[str]], tuple[int, int]],
+                 profile_info: PrfInfo, marks: list[str], parent: QtCore.QObject = None):
+        super().__init__(parent)
+        self.delete_func = delete_func
+        self.profile_info = profile_info
+        self.marks = marks
+        self.finished.connect(self.deleteLater)
+
+    def run(self):
+        success, total = self.delete_func(self.profile_info, self.marks)
+        self.deleted.emit(success, total)
+
+
+class DeleteThreadManager(QtCore.QObject):
+
+    def __init__(self, total: int, progress_bar: QtWidgets.QProgressBar, parent: QtWidgets.QDialog):
+        super().__init__(parent)
+        self.deletion_progress = 0
+        self.success_deletion = 0
+        self.fail_deletion = 0
+        self.total_for_deletion = total
+        self.deletion_info = "成功：{success} 个；失败：{fail} 个；总共 {total} 个。"
+        self.progress_bar = progress_bar
+        self.parent = parent
+
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(0)
+
+        self.progress_bar.valueChanged.connect(self.on_pgb_del_value_changed)
+
+    def start(self, thread: DeleteThread):
+        thread.deleted.connect(self.on_del_thd_deleted)
+        thread.start()
+
+    def on_del_thd_deleted(self, success: int, total: int):
+        self.success_deletion += success
+        self.deletion_progress += total
+        self.fail_deletion += total - success
+        self.progress_bar.setValue(self.deletion_progress)
+
+    def on_pgb_del_value_changed(self, value: int):
+        if value == self.total_for_deletion:
+            QtWidgets.QMessageBox.information(
+                self.parent, "删除结果", self.deletion_info.format(
+                    success=self.success_deletion,
+                    fail=self.fail_deletion,
+                    total=self.total_for_deletion
+                )
+            )
+            self.parent.accept()

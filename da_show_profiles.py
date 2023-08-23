@@ -5,18 +5,22 @@ from config import QtWidgets, QtCore, is_compatible
 from typedict_def import PrfInfo, PrfDB
 from utils_general import sort_profiles_id_func, get_errmsg
 from utils_chromium import get_exec_path
-from utils_qtwidgets import accept_warning
+from utils_qtwidgets import accept_warning, DeleteThread, DeleteThreadManager
 
 
 class DaShowProfiles(QtWidgets.QDialog):
 
     def __init__(self, browser: str, profiles_db: PrfDB,
-                 delete_func: Callable[[PrfInfo, list[str]], int],
+                 delete_func: Callable[[PrfInfo, list[str]], tuple[int, int]],
                  parent: QtWidgets.QWidget = None):
         super().__init__(parent)
         self.browser = browser
         self.profiles_db = profiles_db
         self.delete_func = delete_func
+
+        self._process = QtCore.QProcess(self)
+
+        # ========== UI ==============
 
         self.resize(400, 360)
         self.vly_m = QtWidgets.QVBoxLayout()
@@ -29,6 +33,10 @@ class DaShowProfiles(QtWidgets.QDialog):
         self.trw_profiles = QtWidgets.QTreeWidget(self)
         self.trw_profiles.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.vly_m.addWidget(self.trw_profiles)
+
+        self.pgb_del = QtWidgets.QProgressBar(self)
+        self.pgb_del.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.vly_m.addWidget(self.pgb_del)
 
         self.hly_bot = QtWidgets.QHBoxLayout()
         self.pbn_delete_selected = QtWidgets.QPushButton("删除所选", self)
@@ -43,8 +51,6 @@ class DaShowProfiles(QtWidgets.QDialog):
         self.pbn_delete_selected.clicked.connect(self.on_pbn_delete_selected_clicked)
         self.pbn_open.clicked.connect(self.on_pbn_open_clicked)
         self.pbn_cancel.clicked.connect(self.reject)
-
-        self._process = QtCore.QProcess(self)
 
     def update_list(self, profiles: list[tuple[str, ...]], info: str):
         self.trw_profiles.clear()
@@ -82,11 +88,9 @@ class DaShowProfiles(QtWidgets.QDialog):
         if accept_warning(self, True, "警告", f"确定要删除这 {total} 项吗？"):
             return
 
-        success = 0
+        del_thd_mgr = DeleteThreadManager(total, self.pgb_del, self)
+
         for item in sel_items:
             profile_id = item.text(0)  # type: str
-            success += self.delete_func(self.profiles_db[profile_id], [self.lne_info.text()])
-
-        fail = total - success
-        QtWidgets.QMessageBox.information(self, "信息", f"一共选中 {total} 个，成功删除 {success} 个，失败 {fail} 个。")
-        self.accept()
+            del_thd = DeleteThread(self.delete_func, self.profiles_db[profile_id], [self.lne_info.text()], self)
+            del_thd_mgr.start(del_thd)

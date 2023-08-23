@@ -2,11 +2,12 @@
 from config import QtWidgets, QtCore, QtGui
 
 from typedict_def import PrfDB, BmxDB
-from utils_qtwidgets import accept_warning, ItemUrlRole
+from utils_qtwidgets import accept_warning, ItemUrlRole, DeleteThread, DeleteThreadManager
 from utils_chromium import get_bookmarks_db, delete_bookmarks
 
 from da_show_profiles import DaShowProfiles
 from da_export_bookmarks import DaExportBookmarks
+from da_progress_bar import DaProgressBar
 
 
 class UiWgCheckBookmarks(object):
@@ -122,7 +123,7 @@ class WgCheckBookmarks(QtWidgets.QWidget):
         if accept_warning(self, True, "警告", f"确定删除这 {total} 项吗？"):
             return
 
-        success, inst = 0, 0
+        inst = 0
         id_urls = {}  # type: dict[str, list[str]]
         for item in sel_items:
             url = item.data(ItemUrlRole)
@@ -133,14 +134,14 @@ class WgCheckBookmarks(QtWidgets.QWidget):
                 id_urls[profile_id].append(url)
                 inst += 1
 
-        for profile_id in id_urls:
-            success += delete_bookmarks(self._profiles_dbs[self.browser][profile_id], id_urls[profile_id])
+        da_pb = DaProgressBar(self)
+        da_pb.show()
+        del_thd_mgr = DeleteThreadManager(inst, da_pb.pgb_m, da_pb)
 
-        fail = inst - success
-        QtWidgets.QMessageBox.information(
-            self, "信息",
-            f"一共选中 {total} 个书签，共 {inst} 个位置，成功删除 {success} 个，失败 {fail} 个。"
-        )
+        for profile_id in id_urls:
+            del_thd = DeleteThread(delete_bookmarks, self._profiles_dbs[self.browser][profile_id],
+                                   id_urls[profile_id], da_pb)
+            del_thd_mgr.start(del_thd)
 
     def on_pbn_export_sel_clicked(self):
         bmx_db = {}  # type: BmxDB
