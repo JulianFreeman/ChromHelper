@@ -1,4 +1,6 @@
 # coding: utf8
+import shutil
+from pathlib import Path
 from typing import Callable
 
 from typedict_def import PrfInfo
@@ -128,3 +130,23 @@ class DeleteThreadManager(QtCore.QObject):
                 )
             )
             self.parent.accept()
+
+
+class CopyThread(QtCore.QThread):
+
+    def __init__(self, src_path: Path, dst_path: Path, parent: QtCore.QObject = None):
+        super().__init__(parent)
+        self.src_path = src_path
+        self.dst_path = dst_path
+        self.finished.connect(self.deleteLater)
+
+    def run(self):
+        if self.src_path.is_dir():
+            self.dst_path.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copytree(self.src_path, self.dst_path, dirs_exist_ok=True)
+            except shutil.Error:
+                # LOCK 文件没有权限复制，不用管
+                pass
+        else:
+            shutil.copyfile(self.src_path, self.dst_path)

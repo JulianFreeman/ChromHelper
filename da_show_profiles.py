@@ -32,6 +32,8 @@ class DaShowProfiles(QtWidgets.QDialog):
 
         self.trw_profiles = QtWidgets.QTreeWidget(self)
         self.trw_profiles.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.trw_profiles.setColumnCount(3)
+        self.trw_profiles.setHeaderLabels(["ID", "名称", "位置"])
         self.vly_m.addWidget(self.trw_profiles)
 
         self.pgb_del = QtWidgets.QProgressBar(self)
@@ -54,12 +56,9 @@ class DaShowProfiles(QtWidgets.QDialog):
 
     def update_list(self, profiles: list[tuple[str, ...]], info: str):
         self.trw_profiles.clear()
-        self.trw_profiles.setColumnCount(3)
-        self.trw_profiles.setHeaderLabels(["ID", "名称", "位置"])
-
         profiles.sort(key=lambda x: sort_profiles_id_func(x[0]))
-        for elem in profiles:
-            QtWidgets.QTreeWidgetItem(self.trw_profiles, elem)
+        for row in profiles:
+            QtWidgets.QTreeWidgetItem(self.trw_profiles, row)
         self.lne_info.setText(info)
 
     def on_pbn_open_clicked(self):

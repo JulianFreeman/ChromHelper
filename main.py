@@ -20,7 +20,7 @@ def init_logging() -> tuple[bool, str]:
     log_file = Path(app_log_dir, f"{APP_NAME}_{ver_s}_{now_s}.log")
 
     logging.basicConfig(filename=log_file, encoding="utf8", level=logging.INFO,
-                        format="[%(asctime)s][%(funcName)s][%(levelname)s] %(message)s")
+                        format="[%(asctime)s][%(levelname)s] %(message)s")
     return True, ""
 
 

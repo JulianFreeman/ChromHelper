@@ -188,11 +188,11 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
 
         e_pref_path = prf_info["s_pref_path"]
         if path_not_exist(e_pref_path):
-            logging.warning(f"在 {profile_id} 中找不到 Secure Preferences 文件")
+            logging.warning(f"找不到 {e_pref_path}")
             e_pref_path = prf_info["pref_path"]
             if path_not_exist(e_pref_path):
-                logging.warning(f"在 {profile_id} 中找不到 Preferences 文件")
-                logging.warning(f"在 {profile_id} 中无法找到插件信息")
+                logging.warning(f"找不到 {e_pref_path}")
+                logging.warning(f"在 {e_pref_path.parent} 中无法找到插件信息")
                 continue
 
         e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
@@ -206,7 +206,7 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
 
             path = ext_data.get("path", "")  # type: str
             if len(path) == 0:
-                logging.warning(f"在 {profile_id} 中找不到 {ext_id} 的路径")
+                # 一些没啥信息的插件
                 continue
 
             if path.startswith(ext_id):
@@ -273,13 +273,13 @@ def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> BmxDB:
         bookmarks_path = prf_info["bookmarks_path"]
 
         if path_not_exist(bookmarks_path):
-            logging.warning(f"在 {profile_id} 中找不到 Bookmarks 文件")
+            logging.warning(f"找不到 {bookmarks_path}")
             continue
 
         bookmarks_data = json.loads(bookmarks_path.read_text("utf8"))  # type: dict
         bookmarks_roots = get_with_chained_keys(bookmarks_data, ["roots"])  # type: dict
         if bookmarks_roots is None:
-            logging.warning(f"在 {profile_id} 的 Bookmarks 文件中找不到 roots")
+            logging.warning(f"在 {bookmarks_path} 中找不到 roots")
             continue
 
         for bmx_pos in bookmarks_roots:
@@ -291,15 +291,14 @@ def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> BmxDB:
 
 def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> tuple[int, int]:
     total = len(ext_ids)
-    profile_name = profile_info["name"]
 
     e_pref_path = profile_info["s_pref_path"]
     if path_not_exist(e_pref_path):
-        logging.error(f"在 {profile_name} 中找不到 Secure Preferences 文件")
+        logging.error(f"找不到 {e_pref_path}")
         e_pref_path = profile_info["pref_path"]
         if path_not_exist(e_pref_path):
-            logging.error(f"在 {profile_name} 中找不到 Preferences 文件")
-            logging.error(f"在 {profile_name} 中无法找到插件信息")
+            logging.error(f"找不到 {e_pref_path}")
+            logging.error(f"在 {e_pref_path.parent} 中无法找到插件信息")
             return 0, total
     e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
     ext_set_data = get_with_chained_keys(e_pref_data, ["extensions", "settings"])  # type: dict
@@ -331,7 +330,7 @@ def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> tuple[int, i
         if None not in (c1, c2):
             success += 1
         else:
-            logging.warning(f"在 {profile_name} 中移除 {ids} 失败")
+            logging.warning(f"在 {e_pref_path} 中移除 {ids} 失败")
 
     pinned_ext = get_with_chained_keys(pref_data, ["extensions", "pinned_extensions"])  # type: list
     if pinned_ext is None:
@@ -356,14 +355,13 @@ def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> tuple[int, i
 
 def delete_bookmarks(profile_info: PrfInfo, urls: list[str]) -> tuple[int, int]:
     total = len(urls)
-    profile_name = profile_info["name"]
 
     bookmarks_path = profile_info["bookmarks_path"]
     bookmarks_bak_path = profile_info["bookmarks_bak_path"]
     if not path_not_exist(bookmarks_bak_path):
         os.remove(bookmarks_bak_path)
     if path_not_exist(bookmarks_path):
-        logging.error(f"在 {profile_name} 中未找到 Bookmarks 文件")
+        logging.error(f"未找到 {bookmarks_path}")
         return 0, total
 
     bookmarks_data = json.loads(bookmarks_path.read_text("utf8"))  # type: dict
