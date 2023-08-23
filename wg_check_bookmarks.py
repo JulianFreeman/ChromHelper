@@ -134,7 +134,7 @@ class WgCheckBookmarks(QtWidgets.QWidget):
                 id_urls[profile_id].append(url)
                 inst += 1
 
-        da_pb = DaProgressBar(self)
+        da_pb = DaProgressBar("删除书签进度", self)
         da_pb.show()
         del_thd_mgr = DeleteThreadManager(inst, da_pb.pgb_m, da_pb)
 

@@ -2,7 +2,7 @@
 from typing import Callable
 
 from typedict_def import PrfInfo
-from config import QtWidgets, QtCore, QtGui
+from config import QtWidgets, QtCore, QtGui, QtSql
 
 
 ItemStatusRole = 0x0101
@@ -62,6 +62,16 @@ def accept_warning(widget: QtWidgets.QWidget, condition: bool,
         if b == QtWidgets.QMessageBox.StandardButton.No:
             return True
     return False
+
+
+def get_sql_database(conn_name: str, file_path: str) -> QtSql.QSqlDatabase:
+    if QtSql.QSqlDatabase.contains(conn_name):
+        db = QtSql.QSqlDatabase.database(conn_name, open=False)
+    else:
+        db = QtSql.QSqlDatabase.addDatabase("QSQLITE", conn_name)
+        db.setDatabaseName(file_path)
+
+    return db
 
 
 class DeleteThread(QtCore.QThread):

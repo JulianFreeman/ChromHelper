@@ -106,6 +106,7 @@ def get_profiles_db(user_data_path: Path, *, errmsg: ErrMsg = None) -> PrfDB:
         web_data_path = Path(path, "Web Data")
         bookmarks_path = Path(path, "Bookmarks")
         ext_cookies_path = Path(path, "Extension Cookies")
+        affiliation_path = Path(path, "Affiliation Database")
         extensions_path_d = Path(path, "Extensions")
         bookmarks_bak_path = Path(path, "Bookmarks.bak")
         local_ext_settings_path_d = Path(path, "Local Extension Settings")
@@ -125,6 +126,7 @@ def get_profiles_db(user_data_path: Path, *, errmsg: ErrMsg = None) -> PrfDB:
             local_ext_settings_path_d=local_ext_settings_path_d,
 
             web_data_path=web_data_path,
+            affiliation_path=affiliation_path
         )
         profiles_db[profile_id] = prf_info
 

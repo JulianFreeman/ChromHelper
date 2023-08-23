@@ -79,3 +79,12 @@ def args_match(args: tuple, count: int, a_types: tuple) -> bool:
             return False
 
     return True
+
+
+def append_dic(dic: dict, sub_dic: dict):
+    for k in sub_dic:
+        if not ((k in dic and isinstance(dic[k], dict)) and isinstance(sub_dic[k], dict)):
+            dic[k] = sub_dic[k]
+            continue
+
+        append_dic(dic[k], sub_dic[k])

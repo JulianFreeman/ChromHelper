@@ -12,7 +12,7 @@ from utils_chromium import (
 from da_chrom_settings import DaChromSettings
 from wg_check_plugins import WgCheckPlugins
 from wg_check_bookmarks import WgCheckBookmarks
-# from check_settings import CheckSettingsWin
+from wg_check_settings import WgCheckSettings
 # from append_extensions import AppendExtensionsWin
 
 import chrom_helper_rc
@@ -77,28 +77,28 @@ class UiMwChromHelper(object):
         browser = self.acg_browsers.checkedAction().text()
         self.wg_check_plugins = WgCheckPlugins(browser, self.tw_cw)
         self.wg_check_bookmarks = WgCheckBookmarks(browser, self.tw_cw)
-        # self.wg_check_settings = CheckSettingsWin(browser, self.tw_cw)
+        self.wg_check_settings = WgCheckSettings(browser, self.tw_cw)
         # self.wg_append_extensions = AppendExtensionsWin(browser, self.tw_cw)
 
         if sys.platform == "win32":
             self.tw_cw.addTab(self.wg_check_plugins, "")
             self.tw_cw.addTab(self.wg_check_bookmarks, "")
-        #     self.tw_cw.addTab(self.wg_check_settings, "")
+            self.tw_cw.addTab(self.wg_check_settings, "")
         #     self.tw_cw.addTab(self.wg_append_extensions, "")
             self.tw_cw.setTabPosition(QtWidgets.QTabWidget.TabPosition.West)
             tbb_tw_cw = self.tw_cw.tabBar()
             lb_tbb_wg_check_plugins = self.create_tab_label(icons["bpc"], "插件", tbb_tw_cw)
             lb_tbb_wg_check_bookmarks = self.create_tab_label(icons["bmc"], "书签", tbb_tw_cw)
-        #     lb_tbb_wg_check_settings = self.create_tab_label(icons["bsc"], "设置", tbb_tw_cw)
+            lb_tbb_wg_check_settings = self.create_tab_label(icons["bsc"], "设置", tbb_tw_cw)
         #     lb_tbb_wg_append_extensions = self.create_tab_label(icons["aex"], "追加插件", tbb_tw_cw)
             tbb_tw_cw.setTabButton(0, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_plugins)
             tbb_tw_cw.setTabButton(1, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_bookmarks)
-        #     tbb_tw_cw.setTabButton(2, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_settings)
+            tbb_tw_cw.setTabButton(2, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_settings)
         #     tbb_tw_cw.setTabButton(3, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_append_extensions)
         else:
             self.tw_cw.addTab(self.wg_check_plugins, QtGui.QIcon(icons["bpc"]), "插件")
             self.tw_cw.addTab(self.wg_check_bookmarks, QtGui.QIcon(icons["bmc"]), "书签")
-        #     self.tw_cw.addTab(self.wg_check_settings, QtGui.QIcon(icons["bsc"]), "设置")
+            self.tw_cw.addTab(self.wg_check_settings, QtGui.QIcon(icons["bsc"]), "设置")
         #     self.tw_cw.addTab(self.wg_append_extensions, QtGui.QIcon(icons["aex"]), "追加插件")
 
     @staticmethod
@@ -148,7 +148,7 @@ class MwChromHelper(QtWidgets.QMainWindow):
 
         self.ui.wg_check_plugins.on_browser_changed(browser, profiles_db)
         self.ui.wg_check_bookmarks.on_browser_changed(browser, profiles_db)
-        # self.ui.wg_check_settings.on_browser_changed(browser)
+        self.ui.wg_check_settings.on_browser_changed(browser, profiles_db)
         # self.ui.wg_append_extensions.on_browser_changed(browser)
 
     def on_act_update_browser_data_triggered(self):

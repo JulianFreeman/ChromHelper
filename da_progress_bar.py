@@ -4,9 +4,9 @@ from config import QtWidgets, QtCore
 
 class DaProgressBar(QtWidgets.QDialog):
 
-    def __init__(self, parent: QtWidgets.QWidget = None):
+    def __init__(self, title: str, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        self.setWindowTitle("删除书签进度")
+        self.setWindowTitle(title)
         self.resize(400, 30)
         self.vly_m = QtWidgets.QVBoxLayout()
         self.setLayout(self.vly_m)

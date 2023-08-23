@@ -23,6 +23,7 @@ class PrfInfo(TypedDict):
     local_ext_settings_path_d: Path
 
     web_data_path: Path
+    affiliation_path: Path
 
 
 class ExtInfo(TypedDict):
