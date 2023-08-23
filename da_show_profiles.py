@@ -11,7 +11,7 @@ from utils_qtwidgets import accept_warning
 class DaShowProfiles(QtWidgets.QDialog):
 
     def __init__(self, browser: str, profiles_db: PrfDB,
-                 delete_func: Callable[[PrfInfo, str], bool],
+                 delete_func: Callable[[PrfInfo, list[str]], int],
                  parent: QtWidgets.QWidget = None):
         super().__init__(parent)
         self.browser = browser
@@ -82,13 +82,11 @@ class DaShowProfiles(QtWidgets.QDialog):
         if accept_warning(self, True, "警告", f"确定要删除这 {total} 项吗？"):
             return
 
-        success, fail = 0, 0
+        success = 0
         for item in sel_items:
             profile_id = item.text(0)  # type: str
-            if self.delete_func(self.profiles_db[profile_id], self.lne_info.text()):
-                success += 1
-            else:
-                fail += 1
+            success += self.delete_func(self.profiles_db[profile_id], [self.lne_info.text()])
 
+        fail = total - success
         QtWidgets.QMessageBox.information(self, "信息", f"一共选中 {total} 个，成功删除 {success} 个，失败 {fail} 个。")
         self.accept()

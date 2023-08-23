@@ -3,7 +3,7 @@ from config import QtWidgets, QtCore, QtGui
 
 from typedict_def import PrfDB, BmxDB
 from utils_qtwidgets import accept_warning, ItemUrlRole
-from utils_chromium import get_bookmarks_db, delete_bookmark
+from utils_chromium import get_bookmarks_db, delete_bookmarks
 
 from da_show_profiles import DaShowProfiles
 from da_export_bookmarks import DaExportBookmarks
@@ -122,17 +122,21 @@ class WgCheckBookmarks(QtWidgets.QWidget):
         if accept_warning(self, True, "警告", f"确定删除这 {total} 项吗？"):
             return
 
-        success, fail, inst = 0, 0, 0
+        success, inst = 0, 0
+        id_urls = {}  # type: dict[str, list[str]]
         for item in sel_items:
             url = item.data(ItemUrlRole)
             profiles = self._bmx_db[url]["profiles"]
 
             for profile_id in profiles:
-                if delete_bookmark(self._profiles_dbs[self.browser][profile_id], url):
-                    success += 1
-                else:
-                    fail += 1
+                id_urls.setdefault(profile_id, [])
+                id_urls[profile_id].append(url)
                 inst += 1
+
+        for profile_id in id_urls:
+            success += delete_bookmarks(self._profiles_dbs[self.browser][profile_id], id_urls[profile_id])
+
+        fail = inst - success
         QtWidgets.QMessageBox.information(
             self, "信息",
             f"一共选中 {total} 个书签，共 {inst} 个位置，成功删除 {success} 个，失败 {fail} 个。"
@@ -179,7 +183,7 @@ class WgCheckBookmarks(QtWidgets.QWidget):
         else:
             title = bookmark
 
-        da_sp = DaShowProfiles(self.browser, self._profiles_dbs[self.browser], delete_bookmark, self)
+        da_sp = DaShowProfiles(self.browser, self._profiles_dbs[self.browser], delete_bookmarks, self)
         da_sp.setWindowTitle(f"{title} - {self.browser}")
         profiles = self._bmx_db[url]["profiles"]
 

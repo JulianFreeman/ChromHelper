@@ -5,7 +5,7 @@ from pathlib import Path
 from typedict_def import PrfDB, ExtDB
 from config import QtWidgets, QtGui
 from utils_qtwidgets import accept_warning, ItemStatusRole, ItemIdsRole
-from utils_chromium import get_extensions_db, delete_extension
+from utils_chromium import get_extensions_db, delete_extensions
 
 from da_show_profiles import DaShowProfiles
 from pbn_colored_button import PbnColoredButton
@@ -148,7 +148,7 @@ class WgCheckPlugins(QtWidgets.QWidget):
         ext_id = item.data(ItemIdsRole)  # type: str
         ext_info = self._ext_db[ext_id]
 
-        da_sp = DaShowProfiles(self.browser, self._profiles_dbs[self.browser], delete_extension, self)
+        da_sp = DaShowProfiles(self.browser, self._profiles_dbs[self.browser], delete_extensions, self)
         da_sp.setWindowTitle(f"{ext_info['name']} - {self.browser}")
         da_sp.setWindowIcon(item.icon())
 

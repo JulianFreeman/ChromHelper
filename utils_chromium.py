@@ -2,8 +2,10 @@
 import os
 import sys
 import json
+import shutil
 import logging
 from pathlib import Path
+from typing import Literal
 
 from typedict_def import (
     ErrMsg,
@@ -183,19 +185,19 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
         # 此处不判断是否存在，之后会有图标路径的判断
         extensions_path_d = prf_info["extensions_path_d"]
 
-        pref_path = prf_info["s_pref_path"]
-        if path_not_exist(pref_path):
+        e_pref_path = prf_info["s_pref_path"]
+        if path_not_exist(e_pref_path):
             logging.warning(f"在 {profile_id} 中找不到 Secure Preferences 文件")
-            pref_path = prf_info["pref_path"]
-            if path_not_exist(pref_path):
+            e_pref_path = prf_info["pref_path"]
+            if path_not_exist(e_pref_path):
                 logging.warning(f"在 {profile_id} 中找不到 Preferences 文件")
                 logging.warning(f"在 {profile_id} 中无法找到插件信息")
                 continue
 
-        pref_data = json.loads(pref_path.read_text("utf8"))  # type: dict
-        ext_set_data = get_with_chained_keys(pref_data, ["extensions", "settings"])
+        e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
+        ext_set_data = get_with_chained_keys(e_pref_data, ["extensions", "settings"])
         if ext_set_data is None:
-            logging.warning(f"在 {profile_id} 中找不到 extensions>settings")
+            logging.warning(f"在 {e_pref_path} 中找不到 extensions>settings")
             continue
 
         for ext_id in ext_set_data:
@@ -286,11 +288,70 @@ def get_bookmarks_db(profiles_db: PrfDB, *, errmsg: ErrMsg = None) -> BmxDB:
     return bookmarks_db
 
 
-def delete_extension(profile_info: PrfInfo, ext_id: str) -> bool:
-    print(0)
-    return False
+def delete_extensions(profile_info: PrfInfo, ext_ids: list[str]) -> int:
+    profile_name = profile_info["name"]
+
+    e_pref_path = profile_info["s_pref_path"]
+    if path_not_exist(e_pref_path):
+        logging.error(f"在 {profile_name} 中找不到 Secure Preferences 文件")
+        e_pref_path = profile_info["pref_path"]
+        if path_not_exist(e_pref_path):
+            logging.error(f"在 {profile_name} 中找不到 Preferences 文件")
+            logging.error(f"在 {profile_name} 中无法找到插件信息")
+            return 0
+    e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
+    ext_set_data = get_with_chained_keys(e_pref_data, ["extensions", "settings"])  # type: dict
+    if ext_set_data is None:
+        logging.error(f"在 {e_pref_path} 中找不到 extensions>settings")
+        return 0
+
+    s_pref_path = profile_info["s_pref_path"]
+    pref_path = profile_info["pref_path"]
+    if s_pref_path == e_pref_path:
+        s_pref_data = e_pref_data
+        pref_data = json.loads(pref_path.read_text("utf8"))  # type: dict
+    elif pref_path == e_pref_path:
+        pref_data = e_pref_data
+        s_pref_data = json.loads(s_pref_path.read_text("utf8"))  # type: dict
+    else:
+        logging.critical("不可能的错误")
+        return 0
+
+    macs = get_with_chained_keys(s_pref_data, ["protection", "macs", "extensions", "settings"])  # type: dict
+    if macs is None:
+        logging.error(f"在 {s_pref_path} 中找不到 protection>macs>extensions>settings")
+        return 0
+
+    success = 0
+    for ids in ext_ids:
+        c1 = ext_set_data.pop(ids, None)
+        c2 = macs.pop(ids, None)
+        if None not in (c1, c2):
+            success += 1
+        else:
+            logging.warning(f"在 {profile_name} 中移除 {ids} 失败")
+
+    pinned_ext = get_with_chained_keys(pref_data, ["extensions", "pinned_extensions"])  # type: list
+    if pinned_ext is None:
+        logging.warning(f"在 {pref_path} 中未找到 extensions>pinned_extensions")
+    else:
+        for ids in ext_ids:
+            if ids in pinned_ext:
+                pinned_ext.remove(ids)
+
+    s_pref_path.write_text(json.dumps(s_pref_data, ensure_ascii=False), "utf8")
+    pref_path.write_text(json.dumps(pref_data, ensure_ascii=False), "utf8")
+
+    extensions_path_d = profile_info["extensions_path_d"]
+    for ids in ext_ids:
+        # 对于离线安装的插件，目录可能不在这个位置，所以就不删了
+        ext_folder_path = Path(extensions_path_d, ids)
+        if ext_folder_path.exists():
+            shutil.rmtree(ext_folder_path, ignore_errors=True)
+
+    return success
 
 
-def delete_bookmark(profile_info: PrfInfo, url: str) -> bool:
+def delete_bookmarks(profile_info: PrfInfo, urls: list[str]) -> int:
     print(1)
     return False
