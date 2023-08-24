@@ -2,7 +2,7 @@
 import json
 import logging
 
-from config import QtWidgets, QtCore, QtGui, QtSql
+from config import QtWidgets, QtCore, QtGui, QtSql, is_compatible
 
 from typedict_def import PrfDB, PrfInfo
 from utils_qtwidgets import HorizontalLine, change_color, get_sql_database
@@ -839,7 +839,10 @@ class WgCheckSettings(QtWidgets.QWidget):
                 webdata_db = get_sql_database(f"{self.browser}_{profile_id}_webdata", str(web_data_path))
                 if webdata_db.isOpen() or webdata_db.open():
                     wd_query = QtSql.QSqlQuery(webdata_db)
-                    wd_query.exec(self._DELETE_ENGINES_Q)
+                    if is_compatible:
+                        wd_query.exec_(self._DELETE_ENGINES_Q)
+                    else:
+                        wd_query.exec(self._DELETE_ENGINES_Q)
 
                     if is_current:
                         wd_sqm = self.ui.tbv_browser_engines.model()  # type: QtSql.QSqlQueryModel
@@ -852,7 +855,10 @@ class WgCheckSettings(QtWidgets.QWidget):
                 if affiliation_db.isOpen() or affiliation_db.open():
                     af_query = QtSql.QSqlQuery(affiliation_db)
                     for q in self._DELETE_PASSWORDS_Q_L:
-                        af_query.exec(q)
+                        if is_compatible:
+                            af_query.exec_(q)
+                        else:
+                            af_query.exec(q)
 
                     if is_current:
                         af_sqm = self.ui.tbv_saved_pass.model()  # type: QtSql.QSqlQueryModel

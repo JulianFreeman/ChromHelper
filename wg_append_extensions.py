@@ -180,7 +180,7 @@ class WgAppendExtensions(QtWidgets.QWidget):
             item = self.ui.lw_temp.item(i)
             ids = item.data(ItemIdsRole)
             if ids not in exts_id:
-                item.setBackground(QtGui.QBrush("lightpink"))
+                item.setBackground(QtGui.QBrush(QtGui.QColor("lightpink")))
             else:
                 item.setBackground(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
 
@@ -215,9 +215,9 @@ class WgAppendExtensions(QtWidgets.QWidget):
             if num_installed == len(self._temp_exts):
                 item.setBackground(0, QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
             elif num_installed == 0:
-                item.setBackground(0, QtGui.QBrush("lightpink"))
+                item.setBackground(0, QtGui.QBrush(QtGui.QColor("lightpink")))
             else:
-                item.setBackground(0, QtGui.QBrush("moccasin"))
+                item.setBackground(0, QtGui.QBrush(QtGui.QColor("moccasin")))
 
     def on_pbn_append_clicked(self):
         temp_profile_id = self.ui.lne_temp_profile_id.text()

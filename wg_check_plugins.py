@@ -91,11 +91,11 @@ class WgCheckPlugins(QtWidgets.QWidget):
             item = QtWidgets.QListWidgetItem(icon, ext_info["name"], self.ui.lw_plugins)
             match ext_info["safe"]:
                 case True:
-                    item.setBackground(QtGui.QBrush("lightgreen"))
+                    item.setBackground(QtGui.QBrush(QtGui.QColor("lightgreen")))
                     item.setData(ItemStatusRole, 1)
                     item.setHidden(not self.ui.pbn_safe.isChecked())
                 case False:
-                    item.setBackground(QtGui.QBrush("lightpink"))
+                    item.setBackground(QtGui.QBrush(QtGui.QColor("lightpink")))
                     item.setData(ItemStatusRole, -1)
                     item.setHidden(not self.ui.pbn_unsafe.isChecked())
                 case None:

@@ -155,7 +155,7 @@ class MwChromHelper(QtWidgets.QMainWindow):
         browser = self.ui.acg_browsers.checkedAction().text()
         self.update_browser_data(browser)
 
-    def on_acg_browsers_triggered(self, action: QtGui.QAction):
+    def on_acg_browsers_triggered(self, action: QAction):
         browser = action.text()
         self.update_browser_data(browser)
 

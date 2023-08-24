@@ -1,5 +1,5 @@
 # coding: utf8
-from config import QtWidgets, QtCore, QtGui
+from config import QtWidgets, QtCore, QtGui, is_compatible
 
 from typedict_def import PrfDB, BmxDB
 from utils_qtwidgets import accept_warning, ItemUrlRole, DeleteThread, DeleteThreadManager
@@ -163,17 +163,25 @@ class WgCheckBookmarks(QtWidgets.QWidget):
         )
 
     def on_cbx_filter_by_url_state_changed(self, state: int):
+        if is_compatible:
+            by_url = state == int(QtCore.Qt.CheckState.Checked)
+        else:
+            by_url = state == QtCore.Qt.CheckState.Checked.value
         self.filter_bookmarks(
             self.ui.lne_filter.text(),
-            state == QtCore.Qt.CheckState.Checked.value,
+            by_url,
             self.ui.cbx_exclude_search.isChecked()
         )
 
     def on_cbx_exclude_search_state_changed(self, state: int):
+        if is_compatible:
+            exclude_search = state == int(QtCore.Qt.CheckState.Checked)
+        else:
+            exclude_search = state == QtCore.Qt.CheckState.Checked.value
         self.filter_bookmarks(
             self.ui.lne_filter.text(),
             self.ui.cbx_filter_by_url.isChecked(),
-            state == QtCore.Qt.CheckState.Checked.value,
+            exclude_search,
         )
 
     def on_lw_bookmarks_item_double_clicked(self, item: QtWidgets.QListWidgetItem):
