@@ -4,7 +4,7 @@ from pathlib import Path
 
 from typedict_def import PrfDB, ExtDB
 from config import QtWidgets, QtGui
-from utils_qtwidgets import accept_warning, ItemStatusRole, ItemIdsRole
+from utils_qtwidgets import accept_warning, ItemStatusRole, ItemIdsRole, get_extension_icon
 from utils_chromium import get_extensions_db, delete_extensions
 
 from da_show_profiles import DaShowProfiles
@@ -84,10 +84,7 @@ class WgCheckPlugins(QtWidgets.QWidget):
 
         for ext_id in self._ext_db:
             ext_info = self._ext_db[ext_id]
-            if ext_info["icon"]:
-                icon = QtGui.QIcon(ext_info["icon"])
-            else:
-                icon = QtGui.QIcon(":/img/none_128.png")
+            icon = get_extension_icon(ext_info["icon"])
             item = QtWidgets.QListWidgetItem(icon, ext_info["name"], self.ui.lw_plugins)
             match ext_info["safe"]:
                 case True:

@@ -5,6 +5,7 @@ from typing import Callable
 
 from typedict_def import PrfInfo
 from config import QtWidgets, QtCore, QtGui, QtSql
+from utils_general import path_not_exist
 
 
 ItemStatusRole = 0x0101
@@ -194,3 +195,9 @@ class CopyThreadManager(QtCore.QObject):
                 )
             )
             self.parent.accept()
+
+
+def get_extension_icon(icon_path: str) -> QtGui.QIcon:
+    if path_not_exist(icon_path):
+        return QtGui.QIcon(":/img/none_128.png")
+    return QtGui.QIcon(icon_path)

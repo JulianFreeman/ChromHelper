@@ -7,7 +7,7 @@ from config import QtWidgets, QtGui, QtCore, QtSql
 from typedict_def import PrfDB, AllExtDB, SgExtInfo, PrfInfo
 from utils_qtwidgets import (
     VerticalLine, get_sql_database, ItemIdsRole,
-    CopyThread, CopyThreadManager
+    CopyThread, CopyThreadManager, get_extension_icon
 )
 from utils_chromium import get_extensions_db
 from utils_general import (
@@ -129,10 +129,7 @@ class WgAppendExtensions(QtWidgets.QWidget):
         for e in exts_info:
             if e["id"] in sel_exts_id:
                 self._temp_exts.append(e)
-                if e["icon"]:
-                    icon = QtGui.QIcon(e["icon"])
-                else:
-                    icon = QtGui.QIcon(":/img/none_128.png")
+                icon = get_extension_icon(e["icon"])
                 item = QtWidgets.QListWidgetItem(icon, e["name"], self.ui.lw_temp)
                 item.setData(ItemIdsRole, e["id"])
         self.ui.lne_temp_profile_id.setText(profile_id)
@@ -168,10 +165,7 @@ class WgAppendExtensions(QtWidgets.QWidget):
         exts_info = self._all_ext_db[profile_id]
         exts_id = []  # type: list[str]
         for e in exts_info:
-            if e["icon"]:
-                icon = QtGui.QIcon(e["icon"])
-            else:
-                icon = QtGui.QIcon(":/img/none_128.png")
+            icon = get_extension_icon(e["icon"])
             item = QtWidgets.QListWidgetItem(icon, e["name"], self.ui.lw_extensions)
             item.setData(ItemIdsRole, e["id"])
             exts_id.append(e["id"])
