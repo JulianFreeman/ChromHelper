@@ -85,7 +85,7 @@ class DeleteThread(QtCore.QThread):
         super().__init__(parent)
         self.delete_func = delete_func
         self.profile_info = profile_info
-        self.marks = marks
+        self.marks = marks  # 唯一标识符的列表，可能是 url 或 插件 id
         self.finished.connect(self.deleteLater)
 
     def run(self):
@@ -134,13 +134,19 @@ class DeleteThreadManager(QtCore.QObject):
 
 class CopyThread(QtCore.QThread):
 
-    def __init__(self, src_path: Path, dst_path: Path, parent: QtCore.QObject = None):
+    copied = QtCore.Signal()
+
+    def __init__(self, src_path: Path | None, dst_path: Path | None, parent: QtCore.QObject = None):
         super().__init__(parent)
         self.src_path = src_path
         self.dst_path = dst_path
         self.finished.connect(self.deleteLater)
 
     def run(self):
+        if self.src_path is None and self.dst_path is None:
+            self.copied.emit()
+            return
+
         if self.src_path.is_dir():
             self.dst_path.mkdir(parents=True, exist_ok=True)
             try:
@@ -150,3 +156,41 @@ class CopyThread(QtCore.QThread):
                 pass
         else:
             shutil.copyfile(self.src_path, self.dst_path)
+        self.copied.emit()
+
+
+class CopyThreadManager(QtCore.QObject):
+
+    def __init__(self, num_tar_profiles: int, num_temp_exts: int,
+                 progress_bar: QtWidgets.QProgressBar, parent: QtWidgets.QDialog):
+        super().__init__(parent)
+        self.num_tar_profiles = num_tar_profiles
+        self.num_temp_exts = num_temp_exts
+        self.copy_progress = 0
+        self.finish_info = "已为 {p} 个用户追加 {e} 个插件。"
+        self.progress_bar = progress_bar
+        self.parent = parent
+
+        self.total = num_tar_profiles * num_temp_exts
+        self.progress_bar.setMaximum(self.total)
+        self.progress_bar.setValue(0)
+
+        self.progress_bar.valueChanged.connect(self.on_pgb_copy_value_changed)
+
+    def start(self, thread: CopyThread):
+        thread.copied.connect(self.on_copy_thd_copied)
+        thread.start()
+
+    def on_copy_thd_copied(self):
+        self.copy_progress += 1
+        self.progress_bar.setValue(self.copy_progress)
+
+    def on_pgb_copy_value_changed(self, value: int):
+        if value == self.total:
+            QtWidgets.QMessageBox.information(
+                self.parent, "追加结果", self.finish_info.format(
+                    p=self.num_tar_profiles,
+                    e=self.num_temp_exts
+                )
+            )
+            self.parent.accept()

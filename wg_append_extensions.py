@@ -1,13 +1,20 @@
 # coding: utf8
-import shutil
+import json
 import logging
 from pathlib import Path
 from config import QtWidgets, QtGui, QtCore, QtSql
 
 from typedict_def import PrfDB, AllExtDB, SgExtInfo, PrfInfo
-from utils_qtwidgets import VerticalLine, get_sql_database, CopyThread, ItemIdsRole
+from utils_qtwidgets import (
+    VerticalLine, get_sql_database, ItemIdsRole,
+    CopyThread, CopyThreadManager
+)
 from utils_chromium import get_extensions_db
-from utils_general import sort_profiles_id_func
+from utils_general import (
+    sort_profiles_id_func, path_not_exist,
+    get_with_chained_keys,
+)
+from da_progress_bar import DaProgressBar
 
 
 class UiWgAppendExtensions(object):
@@ -50,19 +57,21 @@ class UiWgAppendExtensions(object):
         self.vly_right = QtWidgets.QVBoxLayout()
         self.hly_cnt.addLayout(self.vly_right)
 
-        self.lne_temp_profile = QtWidgets.QLineEdit(window)
-        self.lne_temp_profile.setReadOnly(True)
+        self.lne_temp_profile_id = QtWidgets.QLineEdit(window)
+        self.lne_temp_profile_id.setReadOnly(True)
         self.lw_temp = QtWidgets.QListWidget(window)
         self.lw_temp.setEditTriggers(QtWidgets.QListWidget.EditTrigger.NoEditTriggers)
         self.trw_tar_profiles = QtWidgets.QTreeWidget(window)
         self.trw_tar_profiles.setColumnCount(2)
         self.trw_tar_profiles.setHeaderLabels(["ID", "名称"])
-        self.vly_right.addWidget(self.lne_temp_profile)
+        self.vly_right.addWidget(self.lne_temp_profile_id)
         self.vly_right.addWidget(self.lw_temp)
         self.vly_right.addWidget(self.trw_tar_profiles)
 
 
 class WgAppendExtensions(QtWidgets.QWidget):
+
+    templates_changed = QtCore.Signal()
 
     def __init__(self, browser: str, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
@@ -76,7 +85,7 @@ class WgAppendExtensions(QtWidgets.QWidget):
             "Brave": {},
         }
         self._all_ext_db = {}  # type: AllExtDB
-        self._current_temp = []  # type: list[SgExtInfo]
+        self._temp_exts = []  # type: list[SgExtInfo]
         self._tar_profiles = []  # type: list[PrfInfo]
 
         self.ui.trw_profiles.itemSelectionChanged.connect(self.on_trw_profiles_item_selection_changed)
@@ -86,6 +95,8 @@ class WgAppendExtensions(QtWidgets.QWidget):
         self.ui.pbn_clear_tar_profiles.clicked.connect(self.on_pbn_clear_tar_profiles_clicked)
         self.ui.pbn_append.clicked.connect(self.on_pbn_append_clicked)
         self.ui.pbn_update.clicked.connect(self.on_pbn_update_clicked)
+
+        self.templates_changed.connect(self.on_self_templates_changed)
 
     def on_browser_changed(self, browser: str, profiles_db: PrfDB):
         self.browser_change_lock = True
@@ -112,24 +123,28 @@ class WgAppendExtensions(QtWidgets.QWidget):
         self.on_pbn_clear_temp_clicked()
 
         profile_id = self.ui.trw_profiles.currentItem().text(0)
-        profile_name = self.ui.trw_profiles.currentItem().text(1)
         sel_exts_id = [item.data(ItemIdsRole) for item in self.ui.lw_extensions.selectedItems()]
         exts_info = self._all_ext_db[profile_id]
 
         for e in exts_info:
             if e["id"] in sel_exts_id:
-                self._current_temp.append(e)
+                self._temp_exts.append(e)
                 if e["icon"]:
                     icon = QtGui.QIcon(e["icon"])
                 else:
                     icon = QtGui.QIcon(":/img/none_128.png")
-                self.ui.lw_temp.addItem(QtWidgets.QListWidgetItem(icon, e["name"]))
-        self.ui.lne_temp_profile.setText(profile_name)
+                item = QtWidgets.QListWidgetItem(icon, e["name"], self.ui.lw_temp)
+                item.setData(ItemIdsRole, e["id"])
+        self.ui.lne_temp_profile_id.setText(profile_id)
+
+        self.templates_changed.emit()
 
     def on_pbn_clear_temp_clicked(self):
         self.ui.lw_temp.clear()
-        self._current_temp.clear()
-        self.ui.lne_temp_profile.clear()
+        self._temp_exts.clear()
+        self.ui.lne_temp_profile_id.clear()
+
+        self.templates_changed.emit()
 
     def on_pbn_set_tar_profiles_clicked(self):
         self.on_pbn_clear_tar_profiles_clicked()
@@ -151,7 +166,7 @@ class WgAppendExtensions(QtWidgets.QWidget):
         self.ui.lw_extensions.clear()
         profile_id = self.ui.trw_profiles.currentItem().text(0)
         exts_info = self._all_ext_db[profile_id]
-
+        exts_id = []  # type: list[str]
         for e in exts_info:
             if e["icon"]:
                 icon = QtGui.QIcon(e["icon"])
@@ -159,112 +174,174 @@ class WgAppendExtensions(QtWidgets.QWidget):
                 icon = QtGui.QIcon(":/img/none_128.png")
             item = QtWidgets.QListWidgetItem(icon, e["name"], self.ui.lw_extensions)
             item.setData(ItemIdsRole, e["id"])
+            exts_id.append(e["id"])
+
+        for i in range(self.ui.lw_temp.count()):
+            item = self.ui.lw_temp.item(i)
+            ids = item.data(ItemIdsRole)
+            if ids not in exts_id:
+                item.setBackground(QtGui.QBrush("lightpink"))
+            else:
+                item.setBackground(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
 
     def on_pbn_update_clicked(self):
-        # idx = self.ui.trw_profiles.ro
-        self.load_profiles(self._profiles_dbs[self.browser])
-        # self.ui.trw_profiles.setCurrentIndex(idx)
-        # self.ui.trw_profiles.scr
+        item = self.ui.trw_profiles.currentItem()
+        if item is not None:
+            idx = self.ui.trw_profiles.indexOfTopLevelItem(item)
+        else:
+            idx = -1
+        v = self.ui.trw_profiles.verticalScrollBar().sliderPosition()
 
+        self.load_profiles(self._profiles_dbs[self.browser])
+
+        item = self.ui.trw_profiles.topLevelItem(idx)
+        if item is not None:
+            self.ui.trw_profiles.setCurrentItem(item)
+        self.ui.trw_profiles.verticalScrollBar().setSliderPosition(v)
+
+        self.on_self_templates_changed()
         QtWidgets.QMessageBox.information(self, "提示", "用户和插件状态已更新。")
 
+    def on_self_templates_changed(self):
+        for i in range(self.ui.trw_profiles.topLevelItemCount()):
+            item = self.ui.trw_profiles.topLevelItem(i)
+            profile_id = item.text(0)
+
+            exts_id = [e["id"] for e in self._all_ext_db[profile_id]]
+            num_installed = 0
+            for e in self._temp_exts:
+                if e["id"] in exts_id:
+                    num_installed += 1
+            if num_installed == len(self._temp_exts):
+                item.setBackground(0, QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+            elif num_installed == 0:
+                item.setBackground(0, QtGui.QBrush("lightpink"))
+            else:
+                item.setBackground(0, QtGui.QBrush("moccasin"))
+
     def on_pbn_append_clicked(self):
-        return 0
-        profile_name = self.ui.lne_temp_profile.text()
-        if len(profile_name) == 0:
+        temp_profile_id = self.ui.lne_temp_profile_id.text()
+        if len(temp_profile_id) == 0:
             QtWidgets.QMessageBox.critical(self, "错误", "没有设定模板用户")
             return
-        data_path = get_data_path(self.browser)
-        if data_path is None:
-            QtWidgets.QMessageBox.critical(self, "错误", "未找到用户数据文件夹")
+        if len(self._tar_profiles) == 0:
+            QtWidgets.QMessageBox.critical(self, "错误", "没有设定目标用户")
+            return
+        profiles_db = self._profiles_dbs[self.browser]
+        temp_profile_info = profiles_db[temp_profile_id]
+
+        s_pref_path = temp_profile_info["s_pref_path"]
+        if path_not_exist(s_pref_path):
+            QtWidgets.QMessageBox.critical(self, "错误", "出现错误，详情查看日志")
+            logging.error(f"找不到模板用户的 {s_pref_path}")
             return
 
-        profile_id = profile_name.split(" - ")[0]
-        s_pref_db = get_secure_preferences_db(self.browser, profile_id)
-        ext_settings = get_extension_settings(self.browser, profile_id, s_pref_db)
-        internal_exts = []  # type: list[tuple[Path, str, dict, str]]  # Path, ids, info, mac
+        s_pref_data = json.loads(s_pref_path.read_text("utf8"))  # type: dict
+        ext_set_data = get_with_chained_keys(s_pref_data, ["extensions", "settings"])  # type: dict
+        if ext_set_data is None:
+            QtWidgets.QMessageBox.critical(self, "错误", "出现错误，详情查看日志")
+            logging.error(f"在模板用户的 {s_pref_path} 中找不到 extensions>settings")
+            return
+
+        macs_es_data = get_with_chained_keys(s_pref_data, ["protection", "macs", "extensions", "settings"])  # type: dict
+        if macs_es_data is None:
+            QtWidgets.QMessageBox.critical(self, "错误", "出现错误，详情查看日志")
+            logging.error(f"在模板用户的 {s_pref_path} 中找不到 protection>macs>extensions>settings")
+            return
+
+        internal_exts = []  # type: list[tuple[str, str, dict, str]]  # path, ids, info, mac
         external_exts = []  # type: list[tuple[str, dict, str]]  # ids, info, mac
 
-        for e in self._current_temp:
-            ids = e["ids"]
-            if ids not in ext_settings:
+        # 在插件部分检测存在性
+        extensions_path_d = temp_profile_info["extensions_path_d"]
+        local_ext_settings_path_d = temp_profile_info["local_ext_settings_path_d"]
+        ext_cookies_path = temp_profile_info["ext_cookies_path"]
+        for ext in self._temp_exts:
+            ids = ext["id"]
+            if ids not in ext_set_data:
                 continue
-            ext_info = ext_settings[ids]  # type: dict
+            if ids not in macs_es_data:
+                continue
+            ext_info = ext_set_data[ids]
+            mac = macs_es_data[ids]
             path = ext_info["path"]  # type: str
             if path.startswith(ids):
-                path_p = Path(data_path, profile_id, "Extensions", path)
+                ext_path = Path(extensions_path_d, path)
                 is_internal = True
             else:
-                path_p = Path(path)
+                ext_path = Path(path)
                 is_internal = False
-            if not path_p.exists():
+            if path_not_exist(ext_path):
                 continue
 
-            macs_es = get_protection_macs_es(self.browser, profile_id, s_pref_db)
-            mac = macs_es.get(ids, "")
-
             if is_internal:
-                internal_exts.append((path_p, ids, ext_info, mac))
+                internal_exts.append((path, ids, ext_info, mac))
             else:
                 external_exts.append((ids, ext_info, mac))
 
-        for p in self._tar_profiles:
-            prf = p.split(" - ")[0]
-            s_pref_db_i = get_secure_preferences_db(self.browser, prf)
-            pref_db_i = get_preferences_db(self.browser, prf)
-            ext_settings_i = get_extension_settings(self.browser, prf, s_pref_db_i, pref_db_i)
-            macs_es_i = get_protection_macs_es(self.browser, prf, s_pref_db_i)
+        da_pb = DaProgressBar("追加插件进度", self)
+        da_pb.show()
+        cp_thd_mgr = CopyThreadManager(len(self._tar_profiles), len(self._temp_exts), da_pb.pgb_m, da_pb)
 
-            # 已存在的插件会覆盖
-            for path_p, ids, ext_info, mac in internal_exts:
-                ext_settings_i[ids] = ext_info
-                macs_es_i[ids] = mac
-                ext_path = Path(data_path, prf, "Extensions", ids, path_p.name)
+        for profile_info in self._tar_profiles:
+            profile_id = profile_info["path"].name
+            s_pref_path_i = profile_info["s_pref_path"]
+            if path_not_exist(s_pref_path_i):
+                logging.error(f"找不到目标用户的 {s_pref_path_i}")
+                continue
+            s_pref_data_i = json.loads(s_pref_path_i.read_text("utf8"))  # type: dict
+            ext_set_data_i = get_with_chained_keys(s_pref_data_i, ["extensions", "settings"])  # type: dict
+            if ext_set_data_i is None:
+                logging.error(f"在目标用户的 {s_pref_path_i} 中找不到 extensions>settings")
+                continue
+            macs_es_data_i = get_with_chained_keys(s_pref_data_i, ["protection", "macs", "extensions", "settings"])  # type: dict
+            if macs_es_data_i is None:
+                logging.error(f"在目标用户的 {s_pref_path_i} 中找不到 protection>macs>extensions>settings")
+                continue
 
-                thd_i = CopyThread(path_p, ext_path, self)
-                thd_i.start()
+            for path, ids, ext_info, mac in internal_exts:
+                ext_set_data_i[ids] = ext_info
+                macs_es_data_i[ids] = mac
+                src_ext_path = Path(extensions_path_d, path)
+                dst_extensions_path_d = profile_info["extensions_path_d"]
+                dst_ext_path = Path(dst_extensions_path_d, path)
+                cp_thd = CopyThread(src_ext_path, dst_ext_path, da_pb)
+                cp_thd_mgr.start(cp_thd)
 
-                # CC特殊处理
+                # 插件数据（只转 Click&Clean）
                 if ids == "ghgabhipcejejjmhhchfonmamedcbeod":
-                    src_path = Path(data_path, profile_id, "Local Extension Settings", ids)
-                    dst_path = Path(data_path, prf, "Local Extension Settings", ids)
-                    if src_path.exists():
-                        thd_c = CopyThread(src_path, dst_path, self)
-                        thd_c.start()
-                elif self.browser == "Edge" and ids == "dacknjoogbepndbemlmljdobinliojbk":
-                    # Edge 的 CC 的配置数据在 Extension Cookies 文件中
-                    src_ec_path = Path(data_path, profile_id, "Extension Cookies")
-                    if src_ec_path.exists():
-                        dst_ec_path = Path(data_path, prf, "Extension Cookies")
-                        if not dst_ec_path.exists():
-                            thd_c = CopyThread(src_ec_path, dst_ec_path, self)
-                            thd_c.start()
+                    src_loc_es_path_i = Path(local_ext_settings_path_d, ids)
+                    if not path_not_exist(src_loc_es_path_i):
+                        dst_local_ext_settings_path_d = profile_info["local_ext_settings_path_d"]
+                        dst_loc_es_path_i = Path(dst_local_ext_settings_path_d, ids)
+                        cp_d_thd = CopyThread(src_loc_es_path_i, dst_loc_es_path_i, self)
+                        cp_d_thd.start()
+                if self.browser == "Edge" and ids == "dacknjoogbepndbemlmljdobinliojbk" and not path_not_exist(ext_cookies_path):
+                    dst_ext_cookies_path = profile_info["ext_cookies_path"]
+                    if path_not_exist(dst_ext_cookies_path):
+                        cp_c_thd = CopyThread(ext_cookies_path, dst_ext_cookies_path, self)
+                        cp_c_thd.start()
+                    else:
+                        src_ec_db = get_sql_database(f"{self.browser}_{temp_profile_id}_ec", str(ext_cookies_path))
+                        if not src_ec_db.open():
+                            logging.error(f"在 Edge 中拷贝插件数据时未能打开 {temp_profile_id} 的 Extension Cookies 文件")
                         else:
-                            src_ec_db = get_sql_database(f"{self.browser}_{profile_id}_ec", str(src_ec_path))
-                            if not src_ec_db.open():
-                                logging.error(f"在 Edge 中拷贝 CC 插件时未能打开 {profile_id} 的 Extension Cookies 文件")
+                            dst_ec_db = get_sql_database(f"{self.browser}_{profile_id}_ec", str(dst_ext_cookies_path))
+                            if not dst_ec_db.open():
+                                logging.error(f"在 Edge 中拷贝插件数据时未能打开 {profile_id} 的 Extension Cookies 文件")
                             else:
-                                dst_ec_db = get_sql_database(f"{self.browser}_{prf}_ec", str(dst_ec_path))
-                                if not dst_ec_db.open():
-                                    logging.error(f"在 Edge 中拷贝 CC 插件时未能打开 {prf} 的 Extension Cookies 文件")
-                                else:
-                                    ec_query = QtSql.QSqlQuery(dst_ec_db)
-                                    ec_query.exec(f"ATTACH DATABASE '{str(src_ec_path)}' AS src_ec_db;")
-                                    ec_query.exec(f"INSERT INTO cookies SELECT * FROM src_ec_db.cookies WHERE host_key='{ids}';")
-                                    logging.info(f"以从 {profile_id} 向 {prf} 的 Extension Cookies 插入 CC 配置")
+                                ec_query = QtSql.QSqlQuery(dst_ec_db)
+                                ec_query.exec(f"ATTACH DATABASE '{str(ext_cookies_path)}' AS src_ec_db;")
+                                ec_query.exec(f"INSERT INTO cookies SELECT * FROM src_ec_db.cookies WHERE host_key='{ids}';")
 
             for ids, ext_info, mac in external_exts:
-                ext_settings_i[ids] = ext_info
-                macs_es_i[ids] = mac
+                ext_set_data_i[ids] = ext_info
+                macs_es_data_i[ids] = mac
                 # 离线插件不需要复制目录
+                # 做个样子，为了计数
+                cp_thd = CopyThread(None, None, da_pb)
+                cp_thd_mgr.start(cp_thd)
 
-            overwrite_preferences_db(pref_db_i, self.browser, prf)
-            overwrite_secure_preferences_db(s_pref_db_i, self.browser, prf)
+            s_pref_path_i.write_text(json.dumps(s_pref_data_i, ensure_ascii=False), "utf8")
 
-        total = len(self._tar_profiles)
         self.on_pbn_clear_tar_profiles_clicked()
-
-        QtWidgets.QMessageBox.information(
-            self, "信息",
-            f"已为 {total} 个用户追加 {len(internal_exts)} 个在线插件和 {len(external_exts)} 个离线插件。"
-        )

@@ -5,6 +5,7 @@ import json
 import shutil
 import logging
 from pathlib import Path
+# from typing import Literal
 
 from typedict_def import (
     ErrMsg,
@@ -45,6 +46,8 @@ EXEC_PATH_MAP = {
         "Brave": r"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
     },
 }
+
+# EXT_SET_FILE_MARK = None  # type: Literal["pref_path", "s_pref_path"] | None
 
 
 def get_exec_path(browser: str, *, errmsg: ErrMsg = None) -> str | None:
@@ -134,6 +137,44 @@ def get_profiles_db(user_data_path: Path, *, errmsg: ErrMsg = None) -> PrfDB:
     return profiles_db
 
 
+# def get_extension_settings_data(profile_info: PrfInfo, *, errmsg: ErrMsg = None) -> dict:
+#     global EXT_SET_FILE_MARK
+#     errmsg = get_errmsg(errmsg)
+#
+#     if EXT_SET_FILE_MARK is not None:
+#         e_pref_path = profile_info[EXT_SET_FILE_MARK]
+#         e_pref_data = json.loads(e_pref_path.read_text("utf8"))  # type: dict
+#         ext_set_data = get_with_chained_keys(e_pref_data, ["extensions", "settings"])  # type: dict
+#         if ext_set_data is not None:
+#             errmsg["err"] = True
+#             return ext_set_data
+#
+#     profile_path = profile_info["path"]
+#
+#     s_pref_path = profile_info["s_pref_path"]
+#     if not path_not_exist(s_pref_path):
+#         s_pref_data = json.loads(s_pref_path.read_text("utf8"))  # type: dict
+#         ext_set_data = get_with_chained_keys(s_pref_data, ["extensions", "settings"])  # type: dict
+#         if ext_set_data is not None:
+#             EXT_SET_FILE_MARK = "s_pref_path"
+#             errmsg["err"] = True
+#             return ext_set_data
+#
+#     pref_path = profile_info["pref_path"]
+#     if path_not_exist(pref_path):
+#         errmsg["msg"] = f"在 {profile_path} 中找不到 Secure Preferences 和 Preferences"
+#         return {}
+#     pref_data = json.loads(pref_path.read_text("utf8"))  # type: dict
+#     ext_set_data = get_with_chained_keys(pref_data, ["extensions", "settings"])  # type: dict
+#     if ext_set_data is None:
+#         errmsg["msg"] = f"在 {profile_path} 的 Preferences 中找不到 extensions>settings"
+#         return {}
+#
+#     EXT_SET_FILE_MARK = "pref_path"
+#     errmsg["err"] = True
+#     return ext_set_data
+
+
 def _get_largest_icon_path(icons: dict[str, str], prefix_path: str | Path) -> str:
     if len(icons) == 0:
         return ""
@@ -183,8 +224,10 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
     for profile_id in profiles_db:
         prf_info = profiles_db[profile_id]
         profile_name = prf_info["name"]
-        # 此处不判断是否存在，之后会有图标路径的判断
-        extensions_path_d = prf_info["extensions_path_d"]
+
+        # 需要在这个位置，以保证 profiles_db 和 all_extensions_db 的键值对个数始终相同
+        if profile_id not in all_extensions_db:
+            all_extensions_db[profile_id] = []
 
         e_pref_path = prf_info["s_pref_path"]
         if path_not_exist(e_pref_path):
@@ -200,6 +243,9 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
         if ext_set_data is None:
             logging.warning(f"在 {e_pref_path} 中找不到 extensions>settings")
             continue
+
+        # 此处不判断是否存在，之后会有图标路径的判断
+        extensions_path_d = prf_info["extensions_path_d"]
 
         for ext_id in ext_set_data:
             ext_data = ext_set_data[ext_id]  # type: dict
@@ -227,8 +273,6 @@ def get_extensions_db(profiles_db: PrfDB, for_all: bool, *, errmsg: ErrMsg = Non
                 continue
 
             if for_all:
-                if profile_id not in all_extensions_db:
-                    all_extensions_db[profile_id] = []
                 all_extensions_db[profile_id].append(SgExtInfo(id=ext_id, name=name, icon=icon))
             else:
                 if ext_id in plg_db:
