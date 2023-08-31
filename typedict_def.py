@@ -25,6 +25,8 @@ class PrfInfo(TypedDict):
     web_data_path: Path
     affiliation_path: Path
 
+    cache_data_path_d: Path
+
 
 class ExtInfo(TypedDict):
     name: str

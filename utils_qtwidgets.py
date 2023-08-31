@@ -1,4 +1,5 @@
 # coding: utf8
+from __future__ import annotations
 import shutil
 from pathlib import Path
 from typing import Callable
@@ -11,6 +12,7 @@ from utils_general import path_not_exist
 ItemStatusRole = 0x0101
 ItemIdsRole = 0x0102
 ItemUrlRole = 0x0103
+ItemSizeRole = 0x0104
 
 
 class PushButtonWithId(QtWidgets.QPushButton):
@@ -201,3 +203,32 @@ def get_extension_icon(icon_path: str) -> QtGui.QIcon:
     if path_not_exist(icon_path):
         return QtGui.QIcon(":/img/none_128.png")
     return QtGui.QIcon(icon_path)
+
+
+class TrwiSortBySize(QtWidgets.QTreeWidgetItem):
+
+    def __lt__(self, other: TrwiSortBySize) -> bool:
+        col = self.treeWidget().sortColumn()
+        this = self.data(col, ItemSizeRole)
+        that = other.data(col, ItemSizeRole)
+        if None in (this, that):
+            this = self.data(col, QtCore.Qt.ItemDataRole.DisplayRole)
+            that = other.data(col, QtCore.Qt.ItemDataRole.DisplayRole)
+
+        if None in (this, that):
+            return False
+        return this > that
+
+
+class ClearThread(QtCore.QThread):
+    cleared = QtCore.Signal(TrwiSortBySize)
+
+    def __init__(self, cache_data_path: Path, item: TrwiSortBySize, parent: QtCore.QObject = None):
+        super().__init__(parent)
+        self.cache_data_path = cache_data_path
+        self.item = item
+
+    def run(self):
+        cache_data_dir = QtCore.QDir(self.cache_data_path)
+        cache_data_dir.removeRecursively()
+        self.cleared.emit(self.item)

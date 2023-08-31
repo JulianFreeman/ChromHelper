@@ -14,6 +14,7 @@ from wg_check_plugins import WgCheckPlugins
 from wg_check_bookmarks import WgCheckBookmarks
 from wg_check_settings import WgCheckSettings
 from wg_append_extensions import WgAppendExtensions
+from wg_clear_cache import WgClearCache
 
 import chrom_helper_rc
 
@@ -29,6 +30,7 @@ class UiMwChromHelper(object):
             "bpc": ":/img/bpc_16.png",
             "bmc": ":/img/bmc_16.png",
             "aex": ":/img/aex_16.png",
+            "cbc": ":/img/cbc_16.png",
         }
 
         window.resize(860, 680)
@@ -79,27 +81,32 @@ class UiMwChromHelper(object):
         self.wg_check_bookmarks = WgCheckBookmarks(browser, self.tw_cw)
         self.wg_check_settings = WgCheckSettings(browser, self.tw_cw)
         self.wg_append_extensions = WgAppendExtensions(browser, self.tw_cw)
+        self.wg_clear_cache = WgClearCache(browser, self.tw_cw)
 
         if sys.platform == "win32":
             self.tw_cw.addTab(self.wg_check_plugins, "")
             self.tw_cw.addTab(self.wg_check_bookmarks, "")
             self.tw_cw.addTab(self.wg_check_settings, "")
             self.tw_cw.addTab(self.wg_append_extensions, "")
+            self.tw_cw.addTab(self.wg_clear_cache, "")
             self.tw_cw.setTabPosition(QtWidgets.QTabWidget.TabPosition.West)
             tbb_tw_cw = self.tw_cw.tabBar()
             lb_tbb_wg_check_plugins = self.create_tab_label(icons["bpc"], "插件", tbb_tw_cw)
             lb_tbb_wg_check_bookmarks = self.create_tab_label(icons["bmc"], "书签", tbb_tw_cw)
             lb_tbb_wg_check_settings = self.create_tab_label(icons["bsc"], "设置", tbb_tw_cw)
             lb_tbb_wg_append_extensions = self.create_tab_label(icons["aex"], "追加插件", tbb_tw_cw)
+            lb_tbb_wg_clear_cache = self.create_tab_label(icons["cbc"], "清理缓存", tbb_tw_cw)
             tbb_tw_cw.setTabButton(0, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_plugins)
             tbb_tw_cw.setTabButton(1, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_bookmarks)
             tbb_tw_cw.setTabButton(2, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_check_settings)
             tbb_tw_cw.setTabButton(3, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_append_extensions)
+            tbb_tw_cw.setTabButton(4, QtWidgets.QTabBar.ButtonPosition.RightSide, lb_tbb_wg_clear_cache)
         else:
             self.tw_cw.addTab(self.wg_check_plugins, QtGui.QIcon(icons["bpc"]), "插件")
             self.tw_cw.addTab(self.wg_check_bookmarks, QtGui.QIcon(icons["bmc"]), "书签")
             self.tw_cw.addTab(self.wg_check_settings, QtGui.QIcon(icons["bsc"]), "设置")
             self.tw_cw.addTab(self.wg_append_extensions, QtGui.QIcon(icons["aex"]), "追加插件")
+            self.tw_cw.addTab(self.wg_clear_cache, QtGui.QIcon(icons["cbc"]), "清理缓存")
 
     @staticmethod
     def create_tab_label(icon: str, title: str, tab_bar: QtWidgets.QTabBar) -> QtWidgets.QLabel:
@@ -150,6 +157,7 @@ class MwChromHelper(QtWidgets.QMainWindow):
         self.ui.wg_check_bookmarks.on_browser_changed(browser, profiles_db)
         self.ui.wg_check_settings.on_browser_changed(browser, profiles_db)
         self.ui.wg_append_extensions.on_browser_changed(browser, profiles_db)
+        self.ui.wg_clear_cache.on_browser_changed(browser, profiles_db)
 
     def on_act_update_browser_data_triggered(self):
         browser = self.ui.acg_browsers.checkedAction().text()

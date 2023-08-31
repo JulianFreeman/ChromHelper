@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/">
+    <file>img/cbc_16.png</file>
     <file>img/none_128.png</file>
     <file>img/aex_16.png</file>
     <file>img/ebk_16.png</file>
