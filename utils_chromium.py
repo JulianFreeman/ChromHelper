@@ -56,7 +56,7 @@ def get_exec_path(browser: str, *, errmsg: ErrMsg = None) -> str | None:
     us = QtCore.QSettings()
     exec_path = us.value(f"{browser.lower()}_exec", "")  # type: str
     if not path_not_exist(exec_path):
-        errmsg["err"] = True
+        errmsg["err"] = False
         return exec_path
 
     exec_path = get_with_chained_keys(EXEC_PATH_MAP, [PLAT, browser])  # type: str | None
@@ -74,7 +74,7 @@ def get_data_path(browser: str, *, errmsg: ErrMsg = None) -> Path | None:
     us = QtCore.QSettings()
     data_path = us.value(f"{browser.lower()}_data", "")  # type: str
     if not path_not_exist(data_path):
-        errmsg["err"] = True
+        errmsg["err"] = False
         return Path(data_path)
 
     data_path = get_with_chained_keys(DATA_PATH_MAP, [PLAT, browser])  # type: Path | None

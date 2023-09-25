@@ -10,7 +10,7 @@ else:
     from PySide6.QtGui import QAction as _QAction, QActionGroup as _QActionGroup
 
 
-version = [2, 2, 0, 20230905]
+version = [2, 2, 1, 20230925]
 
 ORG_NAME = "JnPrograms"
 APP_NAME = "ChromHelper"
